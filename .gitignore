@@ -1,0 +1,8 @@
+
+__pycache__/
+
+cifar-10-batches-py/
+my_custom_dataset/
+
+
+mobilenet_alpha_*
