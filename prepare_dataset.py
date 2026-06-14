@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from PIL import Image
 
-CIFAR_DIR = r"C:\Users\majum\OneDrive\Desktop\MobileNet_Project\cifar-10-batches-py"
+CIFAR_DIR = r"C:\All Desktop\app\cifar-10-batches-py"
 OUT_DIR = "./my_custom_dataset"
 
 CIFAR10_CLASSES = [

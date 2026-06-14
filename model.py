@@ -3,23 +3,27 @@ import torch.nn as nn
 import torchvision.models as tv_models
 
 class CustomCrossEntropyLoss(nn.Module):
-    def __init__(self):
+   
+    def __init__(self, epsilon: float = 0.1, num_classes: int = 10):
         super().__init__()
+        self.epsilon = epsilon
+        self.num_classes = num_classes
 
-    def forward(self, logits, targets):
-        max_vals = logits.max(dim=1, keepdim=True).values
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        
+        B, C = logits.shape
 
-        shifted = logits - max_vals
-        log_sum_exp = torch.log(torch.exp(shifted).sum(dim=1))
+        z_max = logits.max(dim=1, keepdim=True).values          
+        shifted = logits - z_max                                 
+        log_sum_exp = shifted.exp().sum(dim=1, keepdim=True).log()
+        log_p = shifted - log_sum_exp                            
 
-        log_probs = shifted - log_sum_exp.unsqueeze(1)
+        correct_log_p = log_p.gather(1, targets.view(-1, 1)).squeeze(1)  
+        ce_loss = -correct_log_p.mean()
 
-        correct_log_probs = log_probs.gather(
-            dim=1,
-            index=targets.unsqueeze(1)
-        ).squeeze(1)
+        smooth_loss = -log_p.mean()   
 
-        loss = -correct_log_probs.mean()
+        loss = (1.0 - self.epsilon) * ce_loss + self.epsilon * smooth_loss
 
         return loss
 

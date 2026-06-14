@@ -8,7 +8,7 @@ TEST_DIR = "./my_custom_dataset/test"
 NORM_MEAN = (0.5, 0.5, 0.5)
 NORM_STD = (0.5, 0.5, 0.5)
 
-def get_loaders(batch_size=64):
+def get_loaders(batch_size=256):
     transform = transforms.Compose([
         transforms.Resize((64, 64)),
         transforms.ToTensor(),
@@ -31,7 +31,7 @@ def get_loaders(batch_size=64):
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=2,
+        num_workers=0,  # Optimized for Windows
         pin_memory=True,
     )
 
@@ -39,7 +39,7 @@ def get_loaders(batch_size=64):
         test_dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=2,
+        num_workers=0,  # Optimized for Windows
         pin_memory=True,
     )
 
@@ -53,7 +53,6 @@ if __name__ == "__main__":
     train_loader, test_loader, class_names = get_loaders(batch_size=32)
 
     print(f"\nDetected classes ({len(class_names)} total):")
-
     for idx, name in enumerate(class_names):
         print(f"  [{idx:>3}] {name}")
 
@@ -66,5 +65,4 @@ if __name__ == "__main__":
 
     print(f"\nTotal training batches : {len(train_loader)}")
     print(f"Total test batches     : {len(test_loader)}")
-
     print("\nHealth check passed")

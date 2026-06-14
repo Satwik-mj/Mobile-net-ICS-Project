@@ -1,4 +1,4 @@
-
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import torch
 import torch.optim as optim
 
@@ -21,7 +21,7 @@ def train_model(alpha=1.0, epochs=5, batch_size=64):
         num_classes=num_classes
     ).to(device)
 
-    criterion = CustomCrossEntropyLoss()
+    criterion = CustomCrossEntropyLoss(epsilon=0.1, num_classes=num_classes)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     for epoch in range(1, epochs + 1):
@@ -67,38 +67,45 @@ def train_model(alpha=1.0, epochs=5, batch_size=64):
             f"{epoch_loss:.4f} | Train Acc: {epoch_acc:.2f}%"
         )
 
-        model.eval()
+    model.eval()
 
-        correct_test = 0
-        total_test = 0
+    all_preds = []
+    all_labels = []
 
-        with torch.no_grad():
-            for images, labels in test_loader:
-                images = images.to(device, non_blocking=True)
-                labels = labels.to(device, non_blocking=True)
+    with torch.no_grad():
+                for images, labels in test_loader:
+                    images = images.to(device, non_blocking=True)
+                    labels = labels.to(device, non_blocking=True)
 
-                logits = model(images)
-                preds = logits.argmax(dim=1)
+                    logits = model(images)
+                    preds = logits.argmax(dim=1)
 
-                correct_test += (preds == labels).sum().item()
-                total_test += labels.size(0)
+                    all_preds.extend(preds.cpu().numpy())
+                    all_labels.extend(labels.cpu().numpy())
 
-        test_acc = correct_test / total_test * 100
-
-        print(f"[Epoch {epoch}] Test Acc: {test_acc:.2f}%\n")
-
-    save_path = f"mobilenet_alpha_{alpha}.pth"
-
-    torch.save(model.state_dict(), save_path)
-
-    size_mb = os.path.getsize(save_path) / (1024 ** 2)
+    test_acc = accuracy_score(all_labels, all_preds) * 100
+    precision, recall, f1, _ = precision_recall_fscore_support(
+            all_labels, all_preds, average='macro', zero_division=0
+        )
 
     print(
-        f"[train] Weights saved to {save_path} "
-        f"({size_mb:.2f} MB)"
-    )
+                f"[Epoch {epoch}] Test Acc: {test_acc:.2f}% | "
+                f"Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}\n"
+            )
+   
+    print(
+            f"[Epoch {epoch}] Test Acc: {test_acc:.2f}% | "
+            f"Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}\n"
+        )
+
+    save_path = f"mobilenet_alpha_{alpha}.pth"
+    torch.save(model.state_dict(), save_path)
+    
+    size_mb = os.path.getsize(save_path) / (1024 ** 2)
+    print(f"[train] Weights saved to {save_path} ({size_mb:.2f} MB)")
 
     return save_path
+
 
 if __name__ == "__main__":
     print("=" * 60)

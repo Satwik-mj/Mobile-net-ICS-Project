@@ -1,4 +1,3 @@
-
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"   
 
@@ -14,9 +13,10 @@ from dataset import get_loaders
 os.makedirs("results", exist_ok=True)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.backends.cudnn.benchmark = True  # <-- ADD THIS LINE FOR SPEED
 NUM_CLASSES = 10
-EPOCHS_ABLATION = 10          
-BATCH_SIZE = 64
+EPOCHS_ABLATION = 25
+BATCH_SIZE = 256
 
 CLASS_NAMES = [
     "airplane", "automobile", "bird", "cat", "deer",
@@ -140,8 +140,9 @@ def run_ablation():
     results = {}
 
     for loss_name, criterion in [
-        ("CustomCrossEntropyLoss", CustomCrossEntropyLoss()),
-        ("nn.CrossEntropyLoss",    nn.CrossEntropyLoss()),
+        ("nn.CrossEntropyLoss",          nn.CrossEntropyLoss()),
+        ("Custom_CE_no_smoothing",        CustomCrossEntropyLoss(epsilon=0.0, num_classes=10)),
+        ("Custom_CE_label_smoothing_0.1", CustomCrossEntropyLoss(epsilon=0.1, num_classes=10)),
     ]:
         print(f"\nTraining with {loss_name} ...")
         torch.manual_seed(42)
@@ -191,14 +192,24 @@ def run_ablation():
 
     epochs = range(1, EPOCHS_ABLATION + 1)
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    colors = {"CustomCrossEntropyLoss": "steelblue", "nn.CrossEntropyLoss": "darkorange"}
+    colors = {
+        "nn.CrossEntropyLoss":           "darkorange",
+        "Custom_CE_no_smoothing":         "steelblue",
+        "Custom_CE_label_smoothing_0.1":  "green",
+    }
+    labels_map = {
+        "nn.CrossEntropyLoss":           "nn.CrossEntropyLoss (baseline)",
+        "Custom_CE_no_smoothing":         "Custom CE (no smoothing, epsilon=0)",
+        "Custom_CE_label_smoothing_0.1":  "Custom CE + Label Smoothing (epsilon=0.1)",
+    }
 
     for name, res in results.items():
-        label = "Custom CE Loss" if "Custom" in name else "nn.CrossEntropyLoss"
-        axes[0].plot(epochs, [a*100 for a in res["train_acc"]], label=label,
-                     color=colors[name], marker="o", markersize=4)
-        axes[1].plot(epochs, [a*100 for a in res["test_acc"]], label=label,
-                     color=colors[name], marker="o", markersize=4)
+        axes[0].plot(epochs, [a*100 for a in res["train_acc"]],
+                     label=labels_map[name], color=colors[name],
+                     marker="o", markersize=4)
+        axes[1].plot(epochs, [a*100 for a in res["test_acc"]],
+                     label=labels_map[name], color=colors[name],
+                     marker="o", markersize=4)
 
     axes[0].set_title("Train Accuracy")
     axes[0].set_xlabel("Epoch")
@@ -212,7 +223,7 @@ def run_ablation():
     axes[1].legend()
     axes[1].grid(alpha=0.3)
 
-    plt.suptitle("Ablation: CustomCrossEntropyLoss vs nn.CrossEntropyLoss\nMobileNetV2 alpha=1.0 on CIFAR-10",
+    plt.suptitle("Ablation: nn.CrossEntropyLoss vs Custom CE vs Custom CE + Label Smoothing\nMobileNetV2 alpha=1.0 on CIFAR-10",
                  fontsize=13, fontweight="bold")
     plt.tight_layout()
     plt.savefig("results/ablation_summary.png", dpi=150)
@@ -230,7 +241,7 @@ if __name__ == "__main__":
     print("Running evaluation on trained model...")
     evaluate_per_class(checkpoint_path="mobilenet_alpha_1.0.pth")
 
-    print("\nRunning ablation study (this will take ~10-20 min on CPU, ~2-3 min on GPU)...")
+    
     run_ablation()
 
     print("\n✓ All results saved to results/ folder")
